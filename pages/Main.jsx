@@ -18,10 +18,13 @@ function Main() {
           })
         )
       );
+    },
+  });
 
+  const submit = async () => {
       // Append all files to FormData
       const formData = new FormData();
-      acceptedFiles.forEach((file) => {
+      files.forEach((file) => {
         formData.append('file', file);
       });
 
@@ -41,8 +44,7 @@ function Main() {
       } catch (error) {
         console.error('Upload error:', error);
       }
-    },
-  });
+  }
 
   useEffect(() => {
     // Make sure to revoke the data uris to avoid memory leaks, will run on unmount
@@ -68,7 +70,7 @@ function Main() {
         </aside>
       </div>
 
-      <button type="button" className="btn btn-secondary">
+      <button type="button" className="btn btn-secondary" onClick={submit}>
         Submit
       </button>
     </main>

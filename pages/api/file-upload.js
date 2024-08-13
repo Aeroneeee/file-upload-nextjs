@@ -1,7 +1,9 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 const { getApps, initializeApp } = require('firebase/app');
+const { getStorage, ref, uploadBytes} = require('firebase/storage');
+const { IncomingForm } = require('formidable');
 const { readFileSync } = require('node:fs');
-import { getStorage, ref, uploadBytes } from 'firebase/storage';
+const path = require('path');
 
 const firebaseConfig = {
   apiKey: process.env.API_KEY,
@@ -18,45 +20,37 @@ export const config = {
   },
 };
 
-const uploadFileToFirebase = async (filePath, fileName) => {
-  if (!getApps().length) {
-    initializeApp(firebaseConfig);
+export default (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const storage = getStorage();
-  const storageRef = ref(storage, `uploads/${fileName}`);
-  const fileBuffer = fs.readFileSync(filePath);
-
-  await uploadBytes(storageRef, fileBuffer);
-};
-
-export default (req, res) => {
   const firebaseApps = getApps();
   if (!firebaseApps.length) {
     initializeApp(firebaseConfig);
   }
 
-  const form = new formidable.IncomingForm();
-
-  form.uploadDir = path.join(process.cwd(), 'tmp'); // Temporary directory to store files
-  form.keepExtensions = true;
-
+  const form = new IncomingForm();
   form.parse(req, async (err, fields, files) => {
     if (err) {
-      return res.status(500).json({ error: 'Failed to parse form data' });
+      return res.status(500).json({ error: 'Failed to parse the form.' });
+    }
+
+    const file = files?.file && files.file.length && files?.file[0];
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
     }
 
     try {
-      const fileArray = Array.isArray(files.file) ? files.file : [files.file]; // Handle multiple files
-
-      for (const file of fileArray) {
-        await uploadFileToFirebase(file.filepath, file.originalFilename);
-        fs.unlinkSync(file.filepath); // Clean up temporary file
-      }
-
-      return res.status(200).json({ message: 'Files uploaded successfully' });
-    } catch (uploadErr) {
-      return res.status(500).json({ error: 'Failed to upload files' });
+      const storage = getStorage();
+      const fileUploadRef = ref(storage, `images/${path.basename(file.filepath)}`);
+      const fileBuffer = readFileSync(file.filepath);
+      await uploadBytes(fileUploadRef, fileBuffer);
+      
+      res.status(200).json({ message: 'File uploaded successfully!' });
+    } catch (uploadError) {
+      console.error('Upload Error: ', uploadError);
+      res.status(500).json({ error: 'Failed to upload the file.' });
     }
   });
 };
